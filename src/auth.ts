@@ -15,9 +15,10 @@ interface ApiUser {
 
 async function refreshAccessToken(token: JWT) {
   console.log("Attempting to refresh token...");
-  console.log("Sending refresh_token:", token.refreshToken);
+  console.log("Sending refresh_token:", token.refreshToken ? "[REDACTED]" : "missing");
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const res = await fetch(`${baseUrl}/api/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: token.refreshToken }),
@@ -25,7 +26,7 @@ async function refreshAccessToken(token: JWT) {
 
     const refreshedTokens = await res.json();
     console.log("Refresh token response status:", res.status);
-    console.log("Refreshed tokens received:", refreshedTokens);
+    console.log("Refreshed tokens received:", refreshedTokens.access_token ? { access_token: "[REDACTED]" } : refreshedTokens);
 
     if (!res.ok) {
       console.error("Refresh token failed with status:", res.status, refreshedTokens);
@@ -59,7 +60,8 @@ const handler = NextAuth({
       },
       async authorize(credentials) {
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+          const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+          const res = await fetch(`${baseUrl}/api/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -129,7 +131,8 @@ const handler = NextAuth({
       const accessToken = token.accessToken as string;
       if (accessToken) {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+          const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+          const response = await fetch(`${baseUrl}/api/auth/logout`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,

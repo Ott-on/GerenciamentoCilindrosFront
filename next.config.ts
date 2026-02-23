@@ -9,10 +9,10 @@ export default nextConfig;
 module.exports = {
   async rewrites() {
     return [
-      {
-        source: '/api/backend/:path*',
-        destination: 'http://98.94.22.123:8080/:path*',
-      },
-    ]
+    {
+      source: '/api/backend/:path*',
+      destination: 'http://44.220.143.197:8080/:path*',
+    },
+  ]
   },
 }
