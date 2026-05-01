@@ -2,15 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import {
     SectorsQuantityCylinder,
-    ShowCilindro,
-    ShowSetor,
-    ShowFuncionario,
     UpdateCylinderStatus,
-    StockRecebeCilindro,
     fetchAllSectors,
-    createCylinder,
-    assignCylinderToLocation,
-    getCylinderBySerial, 
+    StockRecebeCilindro,
     SetorCompleto,
 } from '@/services/stockService';
 
@@ -50,23 +44,16 @@ export const useEstoque = () => {
             }
             const estadoAtualDoEstoque = Array.from(mapaEstadoAtual.values());
 
-            const dadosCompletosPromises = estadoAtualDoEstoque.map(async (registro) => {
-                const [cilindro, setor, funcionario] = await Promise.all([
-                    ShowCilindro({ cilindro_id: registro.id_cilindro }),
-                    ShowSetor({ id_setor: registro.id_setor }),
-                    ShowFuncionario({ usuario_id: registro.id_usuario })
-                ]);
+            // Usa os dados embutidos do backend (cilindro_serial, setor_nome, usuario_nome)
+            // eliminando as requisições N+1 individuais
+            const tabelaData = estadoAtualDoEstoque.map((registro) => ({
+                id: registro.id_cilindro,
+                codigo_serial: registro.cilindro_serial || `Cilindro #${registro.id_cilindro}`,
+                setor: registro.setor_nome || `Setor #${registro.id_setor}`,
+                status: "Disponível", // O status em_uso não vem no listing; será atualizado no useDashboardCylinders se necessário
+                matricula: registro.usuario_nome || `Usuário #${registro.id_usuario}`,
+            }));
 
-                return {
-                    id: registro.id_cilindro,
-                    codigo_serial: cilindro.codigo_serial,
-                    setor: setor.setor,
-                    status: cilindro.em_uso ? "Em uso" : "Disponível",
-                    matricula: funcionario.matricula,
-                };
-            });
-
-            const tabelaData = await Promise.all(dadosCompletosPromises);
             setDados(tabelaData);
 
         } catch (err) {
@@ -120,6 +107,9 @@ export const useEstoque = () => {
         id_usuario: number
     ) => {
         if (status !== 'authenticated') throw new Error("Usuário não autenticado.");
+
+        // Imports dinâmicos para operações de escrita (usados raramente)
+        const { createCylinder, getCylinderBySerial, assignCylinderToLocation } = await import('@/services/stockService');
 
         try {
             await createCylinder({

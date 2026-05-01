@@ -14,29 +14,34 @@ interface ApiUser {
 }
 
 async function refreshAccessToken(token: JWT) {
-  console.log("Attempting to refresh token...");
-  console.log("Sending refresh_token:", token.refreshToken ? "[REDACTED]" : "missing");
   try {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
     const res = await fetch(`${backendUrl}/auth/refresh`, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "true"
+        "ngrok-skip-browser-warning": "69420",
+        "User-Agent": "PostmanRuntime/7.32.3"
       },
       body: JSON.stringify({ refresh_token: token.refreshToken }),
     });
 
-    const refreshedTokens = await res.json();
-    console.log("Refresh token response status:", res.status);
-    console.log("Refreshed tokens received:", refreshedTokens.access_token ? { access_token: "[REDACTED]" } : refreshedTokens);
+    const responseText = await res.text();
 
-    if (!res.ok) {
-      console.error("Refresh token failed with status:", res.status, refreshedTokens);
-      throw refreshedTokens;
+    // Ngrok frequentemente retorna HTML (502 Bad Gateway) quando o tunnel está instável
+    // Isso é esperado e recuperável — não é um erro crítico
+    if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
+      console.warn("[Auth] Refresh falhou: backend/ngrok retornou HTML (status:", res.status, ") — sessão será expirada");
+      return { ...token, error: "RefreshAccessTokenError" as const };
     }
 
-    console.log("Token refreshed successfully. New accessTokenExpires:", Date.now() + refreshedTokens.expires_in * 1000);
+    const refreshedTokens = JSON.parse(responseText);
+
+    if (!res.ok) {
+      console.warn("[Auth] Refresh falhou com status:", res.status);
+      return { ...token, error: "RefreshAccessTokenError" as const };
+    }
+
     return {
       ...token,
       accessToken: refreshedTokens.access_token,
@@ -44,10 +49,10 @@ async function refreshAccessToken(token: JWT) {
       refreshToken: refreshedTokens.refresh_token ?? token.refreshToken, 
     };
   } catch (error) {
-    console.error("Erro ao atualizar o token de acesso:", error);
+    console.warn("[Auth] Refresh falhou:", error instanceof Error ? error.message : error);
     return {
       ...token,
-      error: "RefreshAccessTokenError", 
+      error: "RefreshAccessTokenError" as const, 
     };
   }
 }
@@ -63,18 +68,15 @@ const handler = NextAuth({
       },
       async authorize(credentials) {
         try {
-          console.log('[NextAuth] BACKEND_URL env:', process.env.BACKEND_URL);
           const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
           const loginUrl = `${backendUrl}/auth/login`;
-          
-          console.log('[NextAuth] Tentando conectar em:', loginUrl);
-          console.log('[NextAuth] Credenciais:', { matricula: credentials?.matricula, senha: '***' });
           
           const res = await fetch(loginUrl, {
             method: "POST",
             headers: { 
               "Content-Type": "application/json",
-              "ngrok-skip-browser-warning": "true"
+              "ngrok-skip-browser-warning": "69420",
+              "User-Agent": "PostmanRuntime/7.32.3"
             },
             body: JSON.stringify({
               matricula: credentials?.matricula,
@@ -82,12 +84,10 @@ const handler = NextAuth({
             }),
           });
 
-          console.log('[NextAuth] Resposta recebida! Status:', res.status);
           const responseText = await res.text();
-          console.log('[NextAuth] Response (primeiros 200 chars):', responseText.substring(0, 200));
 
           if (!res.ok) {
-            console.error("Falha na autenticação:", res.status, responseText.substring(0, 200));
+            console.error("[Auth] Falha na autenticação:", res.status);
             return null;
           }
 
@@ -95,10 +95,10 @@ const handler = NextAuth({
           if (user && user.id_usuario) {
             return { ...user, id: String(user.id_usuario) };
           }
-          console.error("API de autenticação não retornou um id_usuario válido.");
+          console.error("[Auth] API não retornou id_usuario válido.");
           return null;
         } catch (error) {
-          console.error("Erro ao conectar API de auth:", error);
+          console.error("[Auth] Erro ao conectar API:", error instanceof Error ? error.message : error);
           return null;
         }
       },
@@ -109,9 +109,7 @@ const handler = NextAuth({
   },
   callbacks: {
     async jwt({ token, user }) {
-     
       if (user) {
-        console.log("Objeto User no callback JWT:", user);
         token.accessToken = user.access_token;
         token.refreshToken = user.refresh_token;
         token.accessTokenExpires = Date.now() + user.expires_in * 1000;
@@ -151,16 +149,15 @@ const handler = NextAuth({
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
-              'ngrok-skip-browser-warning': 'true'
+              'ngrok-skip-browser-warning': '69420',
+              'User-Agent': 'PostmanRuntime/7.32.3'
             },
           });
           if (!response.ok) {
-            console.error('Backend logout failed:', response.status, response.statusText);
-          } else {
-            console.log('Backend logout successful.');
+            console.warn('[Auth] Backend logout failed:', response.status);
           }
-        } catch (error) {
-          console.error('Error calling backend logout endpoint:', error);
+        } catch {
+          // Logout é best-effort — não propaga erros
         }
       }
     }

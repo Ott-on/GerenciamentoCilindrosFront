@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import {
     SectorsQuantityCylinder,
-    ShowCilindro,
-    ShowSetor,
     UpdateCylinderStatus,
+    ShowCilindro,
     fetchAllSectors,
     StockRecebeCilindro,
     SetorCompleto,
@@ -51,18 +50,25 @@ export const useDashboardCylinders = () => {
             }
             const latestStockStatus = Array.from(latestStatusMap.values());
 
+            // Usa dados embutidos do backend para setor_nome e cilindro_serial
+            // Apenas faz fetch individual do cilindro para verificar em_uso (não disponível no listing)
             const cylinderDetailsPromises = latestStockStatus.map(async (record) => {
-                const [cylinder, setor] = await Promise.all([
-                    ShowCilindro({ cilindro_id: record.id_cilindro }),
-                    ShowSetor({ id_setor: record.id_setor }),
-                ]);
+                // Busca o cilindro apenas para obter o campo em_uso
+                let emUso = false;
+                try {
+                    const cylinder = await ShowCilindro(record.id_cilindro);
+                    emUso = cylinder.em_uso;
+                } catch {
+                    // Se falhar, assume disponível
+                    console.warn(`Não foi possível verificar status de em_uso para cilindro ${record.id_cilindro}`);
+                }
 
                 return {
                     id: record.id_cilindro,
-                    codigo_serial: cylinder.codigo_serial,
+                    codigo_serial: record.cilindro_serial || `Cilindro #${record.id_cilindro}`,
                     id_setor: record.id_setor,
-                    setor: setor.setor,
-                    status: cylinder.em_uso ? "Em uso" : "Disponível",
+                    setor: record.setor_nome || `Setor #${record.id_setor}`,
+                    status: emUso ? "Em uso" : "Disponível",
                 };
             });
 

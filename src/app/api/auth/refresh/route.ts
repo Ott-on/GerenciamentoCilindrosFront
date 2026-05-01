@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://52.90.83.126:8080';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,13 +15,35 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': '69420',
+        'User-Agent': 'PostmanRuntime/7.32.3',
       },
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    
     console.log('[AUTH/REFRESH] Backend status:', response.status);
+
+    const responseText = await response.text();
+
+    // Detecta se o backend retornou HTML em vez de JSON
+    if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
+      console.error('[AUTH/REFRESH] Backend retornou HTML em vez de JSON:', responseText.substring(0, 200));
+      return NextResponse.json(
+        { error: 'Backend retornou HTML em vez de JSON' },
+        { status: 502 }
+      );
+    }
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      console.error('[AUTH/REFRESH] Erro ao parsear JSON:', responseText.substring(0, 200));
+      return NextResponse.json(
+        { error: 'Resposta inválida do backend' },
+        { status: 502 }
+      );
+    }
     
     if (!response.ok) {
       console.error('[AUTH/REFRESH] Erro:', data);
@@ -38,3 +60,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

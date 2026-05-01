@@ -7,36 +7,18 @@ export interface StockRecebeCilindro {
     pressao: number;
     id_usuario: number;
     data_recebimento: string;
+    // Campos embutidos pelo backend (joinedload)
+    setor_nome?: string;
+    cilindro_serial?: string;
+    usuario_nome?: string;
 }
 
 export interface Cilindro {
+    id_cilindro: number;
     codigo_serial: string;
     capacidade: number;
     em_uso: boolean;
     pressao_maxima: number;
-}
-
-export interface Setor {
-    setor: string;
-    oxigenio: number;
-}
-
-export interface Funcionario {
-    nome: string;
-    matricula: string;
-    cargo: string;
-}
-
-export interface FuncionarioParam {
-    usuario_id: number;
-}
-
-export interface SetorParam {
-    id_setor: number;
-}
-
-export interface CilindroParam {
-    cilindro_id: number;
 }
 
 export interface UpdateCylinderStatusProps {
@@ -108,27 +90,6 @@ export const UpdateCylinderStatus = async ({
     await api<void>(url, { method: 'PATCH' });
 }
 
-export const ShowFuncionario = async ({
-    usuario_id,
-}: FuncionarioParam): Promise<Funcionario> => {
-    const url = `${API_BASE_URL}/usuarios/${usuario_id}`;
-    return await api<Funcionario>(url);
-}
-
-export const ShowCilindro = async ({
-    cilindro_id,
-}: CilindroParam): Promise<Cilindro> => {
-    const url = `${API_BASE_URL}/cilindros/${cilindro_id}`;
-    return await api<Cilindro>(url);
-}
-
-export const ShowSetor = async ({
-    id_setor,
-}: SetorParam): Promise<Setor> => {
-    const url = `${API_BASE_URL}/setores/${id_setor}`;
-    return await api<Setor>(url);
-}
-
 export const SectorsQuantityCylinder = async (): Promise<StockRecebeCilindro[]> => {
     const url = `${API_BASE_URL}/locais_recebe_cilindro/`;
     const responseData = await api<{ list_local_recebe_cilindro?: StockRecebeCilindro[] }>(url);
@@ -148,3 +109,8 @@ export const getCylinderBySerial = async (
     const url = `${API_BASE_URL}/cilindros/codigo_serial/${codigo_serial}`;
     return await api<CreatedCylinderResponse>(url, { method: 'GET' });
 };
+
+export const ShowCilindro = async (cilindro_id: number): Promise<Cilindro> => {
+    const url = `${API_BASE_URL}/cilindros/${cilindro_id}`;
+    return await api<Cilindro>(url);
+}

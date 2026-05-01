@@ -2,9 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import {
     SectorsQuantityCylinder, 
-    ShowCilindro,
-    ShowSetor,
-    ShowFuncionario,
     fetchAllSectors,
     assignCylinderToLocation,
     getCylinderBySerial,
@@ -41,29 +38,20 @@ export const useMovimentacoes = () => {
             setIsLoading(true);
             setError(null);
          
-           
             const historicoCompleto = await SectorsQuantityCylinder();
 
-            const dadosCompletosPromises = historicoCompleto.map(async (registro: LocalConsomeCilindro) => {
-             
-                const [cilindro, setor, funcionario] = await Promise.all([
-                    ShowCilindro({ cilindro_id: registro.id_cilindro }),
-                    ShowSetor({ id_setor: registro.id_setor }),
-                    ShowFuncionario({ usuario_id: registro.id_usuario })
-                ]);
-              
-                return {
-                    id: registro.id_local_consome_cilindro, 
-                    codigo_serial: cilindro.codigo_serial,
-                    destino: setor.setor,
-                    pressao: registro.pressao,
-                    percentual_respirador: registro.percentual_respirador,
-                    matricula: funcionario.matricula,
-                    data_consumo: new Date(registro.data_consumo).toLocaleDateString('pt-BR'), 
-                };
-            });
+            // Usa os dados embutidos do backend (setor_nome, cilindro_serial, usuario_matricula)
+            // eliminando as requisições N+1 individuais
+            const tabelaData = historicoCompleto.map((registro: LocalConsomeCilindro) => ({
+                id: registro.id_local_consome_cilindro, 
+                codigo_serial: registro.cilindro_serial || `Cilindro #${registro.id_cilindro}`,
+                destino: registro.setor_nome || `Setor #${registro.id_setor}`,
+                pressao: registro.pressao,
+                percentual_respirador: registro.percentual_respirador,
+                matricula: registro.usuario_matricula || registro.usuario_nome || `Usuário #${registro.id_usuario}`,
+                data_consumo: new Date(registro.data_consumo).toLocaleDateString('pt-BR'), 
+            }));
 
-            const tabelaData = await Promise.all(dadosCompletosPromises);
             setDados(tabelaData);
 
         } catch (err) {

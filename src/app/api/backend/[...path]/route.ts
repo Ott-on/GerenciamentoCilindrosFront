@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://44.220.143.197:8080';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   return handleProxyRequest(req, params, 'GET');

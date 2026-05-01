@@ -1,73 +1,94 @@
 
 import { getSession, signOut } from "next-auth/react";
+import type { Session } from "next-auth";
+
+// Cache da sessão para deduplicar chamadas concorrentes a getSession()
+// Evita o flood de GET /api/auth/session quando múltiplos hooks montam ao mesmo tempo
+let cachedSession: Session | null = null;
+let sessionPromise: Promise<Session | null> | null = null;
+let sessionCacheTime = 0;
+const SESSION_CACHE_TTL_MS = 5000; // 5 segundos de cache
+
+async function getCachedSession(): Promise<Session | null> {
+  const now = Date.now();
+
+  // Se a sessão está em cache e ainda é válida, retorna direto
+  if (cachedSession && (now - sessionCacheTime) < SESSION_CACHE_TTL_MS) {
+    return cachedSession;
+  }
+
+  // Se já há uma requisição de sessão em andamento, reutiliza a mesma Promise
+  if (sessionPromise) {
+    return sessionPromise;
+  }
+
+  // Nova requisição de sessão
+  sessionPromise = getSession().then((session) => {
+    cachedSession = session;
+    sessionCacheTime = Date.now();
+    sessionPromise = null;
+    return session;
+  }).catch((err) => {
+    sessionPromise = null;
+    throw err;
+  });
+
+  return sessionPromise;
+}
+
+// Invalida o cache (usado após 401 para forçar novo getSession)
+function invalidateSessionCache() {
+  cachedSession = null;
+  sessionCacheTime = 0;
+}
 
 const api = async <T = unknown>(url: string, options: RequestInit = {}): Promise<T> => {
-  // Converte URLs do backend para usar o proxy
-  const session = await getSession();
+  const session = await getCachedSession();
 
   if (!session) {
-    console.log("[API] No active session found. Signing out.");
     signOut({ callbackUrl: '/' });
     throw new Error("Não autenticado");
   }
   
   if (session.error === "RefreshAccessTokenError") {
-    console.log("[API] Session has RefreshAccessTokenError. Signing out.");
     signOut({ callbackUrl: '/' });
     throw new Error("Sessão expirada. Por favor, faça o login novamente.");
   }
 
-  const makeRequest = async (token: string | undefined, attempt: number = 1) => {
+  const makeRequest = async (token: string | undefined) => {
     const headers = {
       ...options.headers,
       'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': '69420',  // 🔧 Valor correto do ngrok (não é true, é um número mágico)
-      'User-Agent': 'PostmanRuntime/7.32.3', // 🔧 Identifica como cliente confiável
+      'ngrok-skip-browser-warning': '69420',
+      'User-Agent': 'PostmanRuntime/7.32.3',
       ...(token && { 'Authorization': `Bearer ${token}` }),
     };
-    console.log(`[API] Attempt ${attempt}: Fetching ${url}`);
-    console.log(`[API] Token present: ${token ? 'yes' : 'no'}`);
     return fetch(url, { ...options, headers });
   };
 
-  let response = await makeRequest(session.accessToken, 1);
+  let response = await makeRequest(session.accessToken);
 
+  // Retry com sessão atualizada em caso de 401
   if (response.status === 401) {
-    console.log(`[API] Initial request to ${url} returned 401. Attempting to refresh session.`);
-    const newSession = await getSession(); 
+    console.warn(`[API] 401 em ${url}, tentando refresh de sessão...`);
+    invalidateSessionCache();
+    const newSession = await getCachedSession();
 
     if (newSession?.error === "RefreshAccessTokenError" || !newSession?.accessToken) {
-      console.log("[API] Session refresh failed or no new token. Signing out.");
       await signOut({ callbackUrl: '/' });
       throw new Error("Sessão expirada. Por favor, faça o login novamente.");
     }
 
-    console.log("[API] Session refreshed successfully. Retrying original request.");
-    response = await makeRequest(newSession.accessToken, 2); // Retried request
+    response = await makeRequest(newSession.accessToken);
   }
 
   if (!response.ok) {
+    const responseText = await response.text();
     let errorMessage = `Erro: ${response.status} ${response.statusText}`;
     
-    // 🔴 DEBUG: Pega a resposta COMPLETA em texto
-    const responseText = await response.text();
-    
-    console.error('[API] ❌ ERRO DETECTADO');
-    console.error('[API] URL:', url);
-    console.error('[API] Status:', response.status);
-    console.error('[API] Content-Type:', response.headers.get('content-type'));
-    console.error('[API] Resposta (primeiros 500 chars):', responseText.substring(0, 500));
-    
-    // Se é HTML (error page do backend ou navegador), mostra aviso
     if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
-      console.error('[API] ⚠️ Backend retornou HTML em vez de JSON!');
-      console.error('[API] Possíveis causas:');
-      console.error('[API]   1. Endpoint não existe');
-      console.error('[API]   2. Backend quebrou (erro 500)');
-      console.error('[API]   3. CORS bloqueado pelo navegador');
       errorMessage = `Erro do backend: ${response.status}. Verifique os logs do servidor.`;
     } else {
-      // Tenta parsear como JSON para dar uma mensagem melhor
       try {
         const errorBody = JSON.parse(responseText);
         errorMessage = errorBody.detail || JSON.stringify(errorBody);
@@ -80,34 +101,20 @@ const api = async <T = unknown>(url: string, options: RequestInit = {}): Promise
   }
 
   if (response.status === 204) {
-    console.log(`[API] Request to ${url} successful with 204 No Content.`);
     return {} as T;
   }
 
-  console.log(`[API] Request to ${url} successful.`);
-  
-  // 🔴 ADICIONAR LOGS AQUI
   const responseText = await response.text();
-  console.log('[API] Response Content-Type:', response.headers.get('content-type'));
-  console.log('[API] Response length:', responseText.length);
-  console.log('[API] Response (primeiros 300 chars):', responseText.substring(0, 300));
   
-  // ⚠️ DETECTOR: Status 200 mas retornou HTML!
   if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
-    console.error('[API] ❌ ALERTA: Status 200 mas conteúdo é HTML!');
-    console.error('[API] URL:', url);
-    console.error('[API] HTML:', responseText.substring(0, 500));
     throw new Error('Backend retornou HTML em vez de JSON (Status 200)');
   }
   
   try {
-    return JSON.parse(responseText) as Promise<T>;
-  } catch (e) {
-    console.error('[API] Erro ao fazer parse do JSON:', e);
-    console.error('[API] Response:', responseText);
+    return JSON.parse(responseText) as T;
+  } catch {
     throw new Error('Resposta inválida do servidor');
   }
 };
 
 export default api;
-
