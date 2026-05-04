@@ -50,7 +50,7 @@ export const useEstoque = () => {
                 id: registro.id_cilindro,
                 codigo_serial: registro.cilindro_serial || `Cilindro #${registro.id_cilindro}`,
                 setor: registro.setor_nome || `Setor #${registro.id_setor}`,
-                status: "Disponível", // O status em_uso não vem no listing; será atualizado no useDashboardCylinders se necessário
+                status: registro.em_uso ? "Em uso" : "Disponível", // O status em_uso não vem no listing; será atualizado no useDashboardCylinders se necessário
                 matricula: registro.usuario_nome || `Usuário #${registro.id_usuario}`,
             }));
 

@@ -9,6 +9,7 @@ export interface StockRecebeCilindro {
     data_recebimento: string;
     // Campos embutidos pelo backend (joinedload)
     setor_nome?: string;
+    em_uso?: boolean;
     cilindro_serial?: string;
     usuario_nome?: string;
 }

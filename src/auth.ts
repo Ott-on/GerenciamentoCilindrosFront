@@ -2,6 +2,10 @@ import NextAuth from "next-auth";
 import { JWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 
+// Tolerância de tempo para evitar usar tokens já expirados no servidor
+// Se backend expirou mas frontend ainda acha válido, refresha 30s antes
+const CLOCK_SKEW_SECONDS = 30;
+
 interface ApiUser {
   id_usuario: number;
   matricula: string;
@@ -121,12 +125,14 @@ const handler = NextAuth({
       }
 
       
-      if (Date.now() < (token.accessTokenExpires as number)) {
-       
+      // Se o token ainda é válido (não expirou)
+      // Subtrai CLOCK_SKEW para expirar mais cedo e evitar usar token já expirado no servidor
+      const expirationWithSkew = (token.accessTokenExpires as number) - (CLOCK_SKEW_SECONDS * 1000);
+      if (Date.now() < expirationWithSkew) {
         return token;
       }
 
-      
+      // Token expirou, faz refresh
       return refreshAccessToken(token);
     },
     async session({ session, token }) {
@@ -141,23 +147,25 @@ const handler = NextAuth({
   },
   events: {
     async signOut({ token }) {
-      const accessToken = token.accessToken as string;
-      if (accessToken) {
+      const refreshToken = token.refreshToken as string;
+      if (refreshToken) {
         try {
           const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
           const response = await fetch(`${backendUrl}/auth/logout`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
               'ngrok-skip-browser-warning': '69420',
               'User-Agent': 'PostmanRuntime/7.32.3'
             },
+            body: JSON.stringify({ refresh_token: refreshToken }),
           });
           if (!response.ok) {
             console.warn('[Auth] Backend logout failed:', response.status);
           }
-        } catch {
+        } catch (error) {
           // Logout é best-effort — não propaga erros
+          console.warn('[Auth] Logout erro:', error instanceof Error ? error.message : error);
         }
       }
     }

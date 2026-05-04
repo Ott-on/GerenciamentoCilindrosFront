@@ -95,15 +95,15 @@ export default function SectorsPage() {
                         <div className="space-y-4">
                             <div>
                                 <label htmlFor="pacientes" className="block text-sm font-medium text-gray-700">Nº de Pacientes</label>
-                                <input type="number" name="pacientes" id="pacientes" value={formData.pacientes} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                <input type="number" name="pacientes" id="pacientes" value={formData.pacientes} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
                             </div>
                             <div>
                                 <label htmlFor="pontos_ativos" className="block text-sm font-medium text-gray-700">Nº de Pontos Ativos</label>
-                                <input type="number" name="pontos_ativos" id="pontos_ativos" value={formData.pontos_ativos} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                <input type="number" name="pontos_ativos" id="pontos_ativos" value={formData.pontos_ativos} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
                             </div>
                             <div>
                                 <label htmlFor="duracao_media" className="block text-sm font-medium text-gray-700">Duração Média (horas)</label>
-                                <input type="number" name="duracao_media" id="duracao_media" value={formData.duracao_media} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                <input type="number" name="duracao_media" id="duracao_media" value={formData.duracao_media} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
                             </div>
                         </div>
                         {submitStatus && (
